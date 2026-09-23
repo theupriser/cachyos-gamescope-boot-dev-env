@@ -1,0 +1,204 @@
+---
+name: cachyos-vm-testing
+description: Use when testing cachyos-gamescope-boot (setup-gamescope-boot.sh) changes in the CachyOS QEMU test VM - starting/stopping the VM, restoring snapshots, running the wizard over SSH with scripted menu input, checking each component's state, reboot checks and screenshots.
+---
+
+# Testing cachyos-gamescope-boot in the CachyOS VM
+
+The wizard (`setup-gamescope-boot.sh` + `lib/*.sh`) opens a menu that detects
+which components are on and toggles them to match the user's choice. Menu order:
+
+1. SteamOS conversion (boot into gaming mode via autologin, Return to Gaming Mode shortcut, Steam desktop autostart)
+2. SteamOS theme (Vapor)
+3. Steam Deck/Machine icons (`STEAM_GAMEPADUI_ARGS -steamos3`)
+4. Single user mode (SDDM, no lock screen/user switching/log out; enabling it enables 1, disabling 1 disables it)
+5. Steam Machine support (only on DMI Valve/Fremont: leds-valve-dkms-git, udev rule, steamos-manager)
+
+Undo journals live in `~/.local/state/cachyos-gamescope-boot/` in the guest.
+
+Run everything from the root of this repo on the host. Defaults: user
+`theupriser`, SSH port `2222` (the scripts take `VM_USER` / `VM_PORT` / `VM_HOST`).
+
+## VM lifecycle
+
+Start in the background:
+
+```bash
+./run.sh --fremont > /tmp/vm.log 2>&1 &     # flags: [install] [--fremont] [--nvidia] [--vulkan]
+```
+
+Wait for SSH:
+
+```bash
+until ssh -p 2222 -o BatchMode=yes -o ConnectTimeout=3 theupriser@localhost true 2>/dev/null; do sleep 3; done
+```
+
+Shut down and wait until QEMU is gone. Use `'^qemu-system'`: a plain
+`pgrep -f qemu-system` also matches the shell running it.
+
+```bash
+ssh -p 2222 -o BatchMode=yes theupriser@localhost sudo systemctl poweroff
+while pgrep -f '^qemu-system' >/dev/null; do sleep 2; done
+```
+
+## Snapshots
+
+Only while the VM is off. Keep vars.fd together with the disk.
+
+```bash
+qemu-img snapshot -l disk.qcow2                                               # list
+qemu-img snapshot -a ssh-ready disk.qcow2 && cp vars.ssh-ready.fd vars.fd     # restore
+qemu-img snapshot -c my-state disk.qcow2 && cp vars.fd vars.my-state.fd       # create
+```
+
+Existing snapshots: `clean` (fresh install) and `ssh-ready` (sshd + host key +
+passwordless sudo). Reset to `ssh-ready` before each full test run.
+
+## First-time guest setup
+
+Only when building from `clean`. In the guest console:
+
+```bash
+sudo mount -t 9p -o trans=virtio,version=9p2000.L vmtools /media && /media/guest-ssh-setup.sh
+```
+
+This installs and enables sshd, opens the firewall (ufw/firewalld if active),
+adds the host keys (`share/host-keys.pub`, written by `run.sh`) and a NOPASSWD
+sudoers rule for the test user.
+
+## Mounting the project repo
+
+The repo (`REPO`, default `~/projects/cachyos-gamescope-boot`) is shared
+read-write as 9p tag `repo`. The `ssh-ready` snapshot does not mount it:
+
+```bash
+ssh -p 2222 -o BatchMode=yes theupriser@localhost bash -s << 'EOF'
+sudo mount -t 9p -o trans=virtio,version=9p2000.L repo /mnt
+# optional, survives reboots:
+grep -q ' /mnt 9p ' /etc/fstab || echo 'repo /mnt 9p trans=virtio,version=9p2000.L,nofail 0 0' | sudo tee -a /etc/fstab
+EOF
+```
+
+## Remote commands: the guest shell is fish
+
+Pass remote commands as bash heredocs, never as inline strings containing `$`:
+
+```bash
+ssh -p 2222 -o BatchMode=yes theupriser@localhost bash -s << 'EOF'
+echo "$HOME"
+EOF
+```
+
+## Getting a Plasma session
+
+On a fresh snapshot the plasmalogin greeter is shown. Enable test autologin:
+
+```bash
+ssh -p 2222 -o BatchMode=yes theupriser@localhost bash -s << 'EOF'
+sudo mkdir -p /etc/plasmalogin.conf.d
+printf '[Autologin]\nUser=theupriser\nSession=plasma.desktop\n' | sudo tee /etc/plasmalogin.conf.d/00-test-autologin.conf
+sudo systemctl restart plasmalogin
+EOF
+```
+
+Remove `/etc/plasmalogin.conf.d/00-test-autologin.conf` before testing the
+"normal login screen" case.
+
+## Running the wizard non-interactively
+
+`scripts/vmrun.sh '<input>'` does this (log also at `/tmp/wizard.log` in the
+guest). Manually, in the guest:
+
+```bash
+export XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+printf '\ny\nn\n' | /mnt/setup-gamescope-boot.sh
+```
+
+Menu input: a number toggles a component, an empty line continues, `a`
+re-applies what is on, `q` quits. Then `y` answers "Go ahead?" and `n` the
+restart question.
+
+| Input | Meaning |
+|---|---|
+| `'\ny\nn\n'` | first run, accept all |
+| `'2\n\ny\nn\n'` | toggle the theme |
+| `'a\ny\nn\n'` | re-apply what is on |
+| `'q\n'` | just show the menu |
+
+## Gamescope does not render in this VM
+
+No suitable Vulkan (venus is unstable with the host NVIDIA driver). After
+enabling the conversion, before rebooting:
+
+```bash
+sudo /usr/lib/steamos/steam-set-session plasma.desktop
+```
+
+so autologin lands in Plasma. Stuck in a gamescope relogin loop: over SSH set
+the session to plasma and `sudo systemctl restart display-manager` (or stop the
+DM, set the session, start it).
+
+## Checking component state
+
+`scripts/vmstate.sh` prints:
+
+- display manager, SDDM autologin file, plasmalogin `[Autologin]` section
+- session sync bridge units (`sync-steamos-session.path`) and sudoers rule (`gamescope-session-switch`)
+- Return to Gaming Mode shortcut `Exec=` line
+- `steam-desktop-autostart` user unit; glyphs env file (`99-gamescope-steam-glyphs.conf`)
+- LookAndFeelPackage, ColorScheme, GTK theme, font
+- KDE Action Restrictions (`lock_screen`), kscreenlockerrc Autolock, Lock Session shortcut
+- panel floating/thickness in plasmashellrc
+- kickoff `primaryActions` / `systemFavorites` / `icon`
+- leds-valve-dkms-git package, udev rule, `leds_valve` module, `/sys/class/leds/valve-leds*` count and owner (user must be able to write)
+- steamos-manager package and whether it is active
+- undo journals present, and duplicate keys (`cut -f1-3 journal | sort | uniq -d`)
+
+`scripts/cmp.sh save` stores a baseline of the KDE/GTK configs in the guest
+(`~/.cache/vm-baseline`, not `/tmp`); `scripts/cmp.sh` diffs against it.
+
+## Reboot checks
+
+- Single user mode on: SDDM autologin without greeter: `pgrep sddm-greeter` empty, `plasmashell` running.
+- Everything off: plasmalogin greeter shown: `loginctl list-sessions` shows a greeter session, no user `plasmashell`.
+
+## Full test matrix
+
+Reset to `ssh-ready`, start with `--fremont`, mount the repo, enable test
+autologin, then (all passed last run; `scripts/vmstate.sh` after every step):
+
+1. Fresh run turning everything on (`'\ny\nn\n'`), set session to plasma, reboot.
+2. Rerun: all shown on, "Everything is already the way you want it".
+3. `a` re-apply: no duplicate journal entries.
+4. Theme off: look restored (CachyOS wallpaper, floating 30px panel, `org.cachyos.hello` launcher icon).
+5. Single user off: switches to plasmalogin + sync bridge + sudoers; shortcut Exec uses `sudo -n`.
+6. Single user on: back to SDDM.
+7. Icons + Steam Machine support off: driver, udev rule, modules-load, steamos-manager removed; yay kept.
+8. Conversion off: single user auto-unticked, plasmalogin `[Autologin]` back to CachyOS's `Session=plasma`, journals empty.
+9. Remove the test autologin file, reboot: normal login screen.
+
+## Visual checks
+
+```bash
+ssh -p 2222 -o BatchMode=yes theupriser@localhost bash -s << 'EOF'
+export XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.activateLauncherMenu   # optional, toggles
+sleep 1; spectacle -b -n -f -o /tmp/x.png
+EOF
+scp -P 2222 theupriser@localhost:/tmp/x.png /tmp/x.png    # then view it
+```
+
+The launcher call toggles; retake if the screenshot misses it. Apps started
+directly over SSH lack the session's Qt platform theme and look light; start
+them with `systemd-run --user <app>`.
+
+## Pitfalls
+
+- The guest's `/tmp` is cleared on reboot; keep baselines elsewhere.
+- The fake Fremont DMI makes leds-valve load 17 LED nodes, but there is no real hardware.
+- shellcheck: `sudo pacman -S shellcheck`, then in `/mnt`:
+  `shellcheck -S warning -x setup-gamescope-boot.sh lib/*.sh`
+  (SC2154/SC2034 cross-file warnings are false positives).
+- This repo's `.gitignore` is an allowlist: it ignores everything and
+  un-ignores only the tracked scripts/docs. Add any new tracked file to it
+  explicitly, or git will silently ignore it.
