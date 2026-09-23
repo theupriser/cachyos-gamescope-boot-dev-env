@@ -46,6 +46,42 @@ auth and passwordless sudo through the read-only `vmtools` share:
 sudo mount -t 9p -o trans=virtio,version=9p2000.L vmtools /media && /media/guest-ssh-setup.sh
 ```
 
+### Adding your SSH key
+
+`guest-ssh-setup.sh` authorizes the host's public keys. `run.sh` copies them
+at every start from `~/.ssh/*.pub` into `share/host-keys.pub` (git-ignored),
+which the guest sees as `/media/host-keys.pub`. So:
+
+1. Make sure you have a key on the host; create one if `ls ~/.ssh/*.pub`
+   shows nothing:
+
+   ```bash
+   ssh-keygen -t ed25519
+   ```
+
+2. Start (or restart) the VM with `./run.sh`, so the key is copied into the
+   share.
+3. In the guest, run the setup script (above). It installs and starts
+   `sshd`, opens port 22 if a firewall is active, adds every host key to
+   `~/.ssh/authorized_keys` (without duplicates) and gives the guest user
+   passwordless sudo.
+4. Test from the host: `ssh -p 2222 <vm-user>@localhost true` should return
+   without asking for a password.
+
+If you ran the setup script before the key existed (it prints "No host keys
+were shared"), or you want to add another key later, either restart the VM
+and run the setup script again, or copy the key over SSH with the guest
+user's password:
+
+```bash
+ssh-copy-id -p 2222 <vm-user>@localhost
+```
+
+On Windows, use `.\add-ssh-key.ps1 -User <vm-user>` instead (it creates a key
+if needed). If SSH hangs at "banner exchange", `sshd` isn't running in the
+guest or a firewall blocks port 22; check with `systemctl is-active sshd` in
+the guest.
+
 Power off and snapshot again:
 
 ```bash
