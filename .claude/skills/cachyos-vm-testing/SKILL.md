@@ -224,6 +224,19 @@ autologin, then (all passed last run; `scripts/vmstate.sh` after every step):
 8. Conversion off: single user auto-unticked, plasmalogin `[Autologin]` back to CachyOS's `Session=plasma`, journals empty.
 9. Remove the test autologin file, reboot: normal login screen.
 
+## BIOS update item
+
+Only shown with `--fremont`, and only tickable when the guest's BIOS version
+differs from Valve's newest. Fake an older one with
+`BIOS_VERSION=F7F0107 ./run.sh --fremont` (SMBIOS type 0; `vmreset.sh` passes
+the environment through). fwupd correctly refuses the firmware in the VM
+("not for this machine's hardware"), so walk the whole flow with
+`WIZARD_BIOS_DRY_RUN=1` (skips only that check, never flashes). Scripted:
+`printf '6\n\ny\ny\nUPDATE\n\nq\n' | WIZARD_BIOS_DRY_RUN=1 /mnt/setup-gamescope-boot.sh`.
+
+The wizard loops back to the menu after every run (Enter, or `m`/`r` when a
+restart is needed) until `q`; scripted input that runs out ends it like `q`.
+
 ## Visual checks
 
 `scripts/vmshot.sh <out.png>` does the below. Starting `spectacle` straight

@@ -24,7 +24,12 @@ Watchable test runs and the lessons from testing cachyos-gamescope-boot 0.7.0
     the conversion/single-user coupling, the repo mount lost on reboot,
     re-applying the conversion resets the session to gamescope, the new
     theme and LED checks in the test matrix, and the broken mirror workaround.
-- **docs: Changelog**
+- `3733f94` **docs: Changelog**
+- **feat: Fake BIOS version for testing the BIOS update item**
+  - `BIOS_VERSION=F7F0107 ./run.sh ...` makes the guest report that BIOS
+    version (SMBIOS type 0), so the wizard offers the update.
+  - Skill: testing the BIOS item with `WIZARD_BIOS_DRY_RUN=1`, and the
+    wizard's menu loop.
 
 ## 0.1.1 - 2026-09-23
 
