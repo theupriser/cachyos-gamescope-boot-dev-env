@@ -9,7 +9,7 @@ The wizard (`steamify.sh` + `lib/*.sh`) opens a menu that detects
 which components are on and toggles them to match the user's choice. Menu order:
 
 1. SteamOS conversion (boot into gaming mode via autologin, Return to Gaming Mode shortcut, Steam desktop autostart)
-2. Boot into: [gamescope] / desktop (a choice row, not a checkbox; on = desktop via `steamify-boot-desktop.service`; needs 1, never preselected)
+2. Boot into: [gamescope] / desktop (sub-option of 1, **only listed while 1 is ticked**, so the numbers below shift up by one when 1 is unticked; a choice row, on = desktop via `steamify-boot-desktop.service`; never preselected)
 3. SteamOS theme (installs `cachyos-vapor` and applies the Vapor global theme with its desktop and window layout; needs a running Plasma session)
 4. Steam Deck/Machine icons (`STEAM_GAMEPADUI_ARGS -steamos3`)
 5. Single user mode (SDDM, no lock screen/user switching/log out; enabling it enables 1, disabling 1 disables it)
@@ -36,7 +36,7 @@ snapshot commands below run in that directory. `scripts/vmreset.sh` takes
 scripts/vmreset.sh --fremont        # restore ssh-ready, boot, mount repo, autologin, wait for Plasma
                                     # (also skips the broken krfoss mirror, installs shellcheck)
 scripts/cmp.sh save                 # baseline of the KDE configs
-scripts/vmwatch.sh '1\n4\n6\n\ny\n' "Theme only"   # wizard in a visible Konsole in the VM
+scripts/vmwatch.sh '1\n3\n5\n\ny\n' "Theme only"   # wizard in a visible Konsole in the VM
 scripts/vmwatch.sh --release '\ny\nm\nq\n' "Full run"   # the newest GitHub release instead of /mnt
 scripts/vmstate.sh                  # component state
 scripts/vmshot.sh --clean /path/shot.png    # screenshot (--clean: close Steam/Hello/Konsole first)
@@ -168,7 +168,7 @@ line at the restart question.
 | `'2\n\ny\n'` | toggle the theme |
 | `'a\ny\nm\nq\n'` | re-apply what is on (includes the conversion, so a restart is pending) |
 | `'q\n'` | just show the menu |
-| `'1\n4\n6\n\ny\n'` | from all-off: theme only (with `--fremont` also add `7\n` to drop Steam Machine support) |
+| `'1\n3\n5\n\ny\n'` | from all-off: theme only (after `1` the Boot row is gone, so glyphs = 3, shortcut = 5; with `--fremont` add `6\n` to drop Steam Machine support) |
 | `'2\n\ny\n'` | switch Boot into between gamescope and desktop |
 | `'1\n\ny\n'` | from a state where 1 is off: turn the conversion on |
 

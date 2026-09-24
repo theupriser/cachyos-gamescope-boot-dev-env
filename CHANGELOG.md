@@ -44,9 +44,10 @@ Watchable test runs and the lessons from testing cachyos-gamescope-boot 0.7.0
     scripted inputs, always finishing on a fresh snapshot (the DKMS bug only
     showed there), testing releases and their assets, the Steamify shortcut,
     and the zsh word-splitting pitfall.
-- **docs: Skill for Steamify 0.10.0 (Boot into)**
+- `e80175e` **docs: Skill for Steamify 0.10.0 (Boot into)**
   - Menu items 1-8 with the new "Boot into" row; inputs renumbered; "Boot
     into: desktop" as the easy way around gamescope not rendering in the VM.
+- **docs: "Boot into" is only listed while the conversion is ticked**
 
 ## 0.1.1 - 2026-09-23
 
