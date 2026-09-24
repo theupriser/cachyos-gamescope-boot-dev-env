@@ -9,14 +9,15 @@ The wizard (`steamify.sh` + `lib/*.sh`) opens a menu that detects
 which components are on and toggles them to match the user's choice. Menu order:
 
 1. SteamOS conversion (boot into gaming mode via autologin, Return to Gaming Mode shortcut, Steam desktop autostart)
-2. SteamOS theme (installs `cachyos-vapor` and applies the Vapor global theme with its desktop and window layout; needs a running Plasma session)
-3. Steam Deck/Machine icons (`STEAM_GAMEPADUI_ARGS -steamos3`)
-4. Single user mode (SDDM, no lock screen/user switching/log out; enabling it enables 1, disabling 1 disables it)
-5. Steamify shortcut (desktop icon + launcher entry that `curl | bash` the newest release; its gear icon is a release asset)
-6. Steam Machine support (only on DMI Valve/Fremont: leds-valve-dkms-git built for every kernel via `/etc/dkms/leds-valve-dkms.conf`, `ensure-kernel-headers.service`, udev rule, steamos-manager, powerdevilrc)
-7. Update BIOS (only on Fremont, an opt-in action, never pre-ticked; tickable only when Valve has a newer BIOS)
+2. Boot into: [gamescope] / desktop (a choice row, not a checkbox; on = desktop via `steamify-boot-desktop.service`; needs 1, never preselected)
+3. SteamOS theme (installs `cachyos-vapor` and applies the Vapor global theme with its desktop and window layout; needs a running Plasma session)
+4. Steam Deck/Machine icons (`STEAM_GAMEPADUI_ARGS -steamos3`)
+5. Single user mode (SDDM, no lock screen/user switching/log out; enabling it enables 1, disabling 1 disables it)
+6. Steamify shortcut (desktop icon + launcher entry that `curl | bash` the newest release; its gear icon is a release asset)
+7. Steam Machine support (only on DMI Valve/Fremont: leds-valve-dkms-git built for every kernel via `/etc/dkms/leds-valve-dkms.conf`, `ensure-kernel-headers.service`, udev rule, steamos-manager, powerdevilrc)
+8. Update BIOS (only on Fremont, an opt-in action, never pre-ticked; tickable only when Valve has a newer BIOS)
 
-Without `--fremont` the menu has only 1-5.
+Without `--fremont` the menu has only 1-6.
 
 Undo journals live in `~/.local/state/cachyos-gamescope-boot/` in the guest.
 
@@ -35,7 +36,7 @@ snapshot commands below run in that directory. `scripts/vmreset.sh` takes
 scripts/vmreset.sh --fremont        # restore ssh-ready, boot, mount repo, autologin, wait for Plasma
                                     # (also skips the broken krfoss mirror, installs shellcheck)
 scripts/cmp.sh save                 # baseline of the KDE configs
-scripts/vmwatch.sh '1\n3\n\ny\n' "Theme only"   # wizard in a visible Konsole in the VM
+scripts/vmwatch.sh '1\n4\n6\n\ny\n' "Theme only"   # wizard in a visible Konsole in the VM
 scripts/vmwatch.sh --release '\ny\nm\nq\n' "Full run"   # the newest GitHub release instead of /mnt
 scripts/vmstate.sh                  # component state
 scripts/vmshot.sh --clean /path/shot.png    # screenshot (--clean: close Steam/Hello/Konsole first)
@@ -167,7 +168,8 @@ line at the restart question.
 | `'2\n\ny\n'` | toggle the theme |
 | `'a\ny\nm\nq\n'` | re-apply what is on (includes the conversion, so a restart is pending) |
 | `'q\n'` | just show the menu |
-| `'1\n3\n5\n\ny\n'` | from all-off: theme only (with `--fremont` also add `6\n` to drop Steam Machine support) |
+| `'1\n4\n6\n\ny\n'` | from all-off: theme only (with `--fremont` also add `7\n` to drop Steam Machine support) |
+| `'2\n\ny\n'` | switch Boot into between gamescope and desktop |
 | `'1\n\ny\n'` | from a state where 1 is off: turn the conversion on |
 
 **Know the starting ticks before choosing input.** When *everything* is off
@@ -182,6 +184,10 @@ failed. Re-applying the conversion also resets the autologin session to
 gamescope, so set it back to plasma before the next reboot (below).
 
 ## Gamescope does not render in this VM
+
+Easiest: choose **Boot into: desktop** (`'2\n\ny\n'`); the boot unit then
+sets the session to Plasma before the login manager, so the VM always boots
+to the desktop even after something set gamescope. Otherwise:
 
 (Also after any re-apply that includes the conversion.)
 
@@ -264,8 +270,8 @@ differs from Valve's newest. Fake an older one with
 the environment through). fwupd correctly refuses the firmware in the VM
 ("not for this machine's hardware"), so walk the whole flow with
 `WIZARD_BIOS_DRY_RUN=1` (skips only that check, never flashes). Scripted:
-`printf '7\n\ny\ny\nUPDATE\nm\nq\nn\n' | WIZARD_BIOS_DRY_RUN=1 /mnt/steamify.sh`
-(BIOS is item 7 with `--fremont`; the final `n` answers the restart question).
+`printf '8\n\ny\ny\nUPDATE\nm\nq\nn\n' | WIZARD_BIOS_DRY_RUN=1 /mnt/steamify.sh`
+(BIOS is item 8 with `--fremont`; the final `n` answers the restart question).
 
 A successful dry run counts as staged, so `[m]`/`[r]` and the restart question
 on `q` show up too; in dry-run mode "restart" only prints.

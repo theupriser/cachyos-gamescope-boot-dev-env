@@ -36,7 +36,7 @@ Watchable test runs and the lessons from testing cachyos-gamescope-boot 0.7.0
     their old names.
 - `8c48858` **chore: The wizard's script is now steamify.sh**
   - `vmrun.sh`, `vmwatch.sh`, the skill and the README run `/mnt/steamify.sh`.
-- **feat: Release testing, cleaner resets and screenshots; skill updates**
+- `f27dd86` **feat: Release testing, cleaner resets and screenshots; skill updates**
   - `vmwatch.sh --release` runs the newest GitHub release in the VM.
   - `vmreset.sh` skips the broken krfoss mirror and installs shellcheck.
   - `vmshot.sh --clean` closes Steam, CachyOS Hello and Konsole first.
@@ -44,6 +44,9 @@ Watchable test runs and the lessons from testing cachyos-gamescope-boot 0.7.0
     scripted inputs, always finishing on a fresh snapshot (the DKMS bug only
     showed there), testing releases and their assets, the Steamify shortcut,
     and the zsh word-splitting pitfall.
+- **docs: Skill for Steamify 0.10.0 (Boot into)**
+  - Menu items 1-8 with the new "Boot into" row; inputs renumbered; "Boot
+    into: desktop" as the easy way around gamescope not rendering in the VM.
 
 ## 0.1.1 - 2026-09-23
 
