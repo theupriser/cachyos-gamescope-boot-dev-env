@@ -1,5 +1,5 @@
 #!/bin/bash
-# CachyOS test VM for setup-gamescope-boot.sh.
+# CachyOS test VM for steamify.sh.
 #   [REPO=/path/to/cachyos-gamescope-boot] ./run.sh [install] [--nvidia] [--vulkan] [--fremont]
 #     install    boot the installer ISO
 #     --nvidia   render the guest's virtio-gpu (virgl) on the host NVIDIA dGPU

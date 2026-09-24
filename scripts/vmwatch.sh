@@ -13,13 +13,13 @@ label="${2:-Running the wizard}"
 { printf 'input=%q label=%q repo=%q uid=%q wait=%q\n' "$input" "$label" "${GUEST_REPO:-/mnt}" \
     "${GUEST_UID:-1000}" "${WAIT:-1800}"; cat << 'REMOTE'
 export XDG_RUNTIME_DIR=/run/user/$uid DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus
-[ -x "$repo/setup-gamescope-boot.sh" ] || { echo "$repo/setup-gamescope-boot.sh missing: mount the repo (lost after a reboot)" >&2; exit 1; }
+[ -x "$repo/steamify.sh" ] || { echo "$repo/steamify.sh missing: mount the repo (lost after a reboot)" >&2; exit 1; }
 rm -f /tmp/wizard.done
 {
     echo '#!/bin/bash'
     printf 'echo %q; echo %q; sleep 3\n' ">>> $label" ">>> menu input: $input"
     # shellcheck disable=SC2016
-    printf 'printf %q | %q 2>&1 | tee /tmp/wizard.log\n' "$input" "$repo/setup-gamescope-boot.sh"
+    printf 'printf %q | %q 2>&1 | tee /tmp/wizard.log\n' "$input" "$repo/steamify.sh"
     echo 'touch /tmp/wizard.done'
 } > /tmp/vmwatch-run.sh
 chmod +x /tmp/vmwatch-run.sh

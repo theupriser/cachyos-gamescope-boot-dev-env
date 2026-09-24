@@ -1,11 +1,11 @@
 ---
 name: cachyos-vm-testing
-description: Use when testing Steamify CachyOS (repo steamify-cachyos, setup-gamescope-boot.sh) changes in the CachyOS QEMU test VM - starting/stopping the VM, restoring snapshots, running the wizard over SSH with scripted menu input, checking each component's state, reboot checks and screenshots.
+description: Use when testing Steamify CachyOS (repo steamify-cachyos, steamify.sh) changes in the CachyOS QEMU test VM - starting/stopping the VM, restoring snapshots, running the wizard over SSH with scripted menu input, checking each component's state, reboot checks and screenshots.
 ---
 
 # Testing Steamify CachyOS in the CachyOS VM
 
-The wizard (`setup-gamescope-boot.sh` + `lib/*.sh`) opens a menu that detects
+The wizard (`steamify.sh` + `lib/*.sh`) opens a menu that detects
 which components are on and toggles them to match the user's choice. Menu order:
 
 1. SteamOS conversion (boot into gaming mode via autologin, Return to Gaming Mode shortcut, Steam desktop autostart)
@@ -88,7 +88,7 @@ sudoers rule for the test user.
 ## Mounting the project repo
 
 The mount is lost on every reboot (unless the fstab line below was added).
-Without it the wizard fails with `/mnt/setup-gamescope-boot.sh: No such file
+Without it the wizard fails with `/mnt/steamify.sh: No such file
 or directory`, which is easy to miss in filtered output. Remount after each reboot.
 
 The repo (`REPO`, default `~/projects/cachyos-gamescope-boot`) is shared
@@ -134,7 +134,7 @@ guest). Manually, in the guest:
 
 ```bash
 export XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-printf '\ny\nn\n' | /mnt/setup-gamescope-boot.sh
+printf '\ny\nn\n' | /mnt/steamify.sh
 ```
 
 Menu input: a number toggles a component, an empty line continues, `a`
@@ -232,7 +232,7 @@ differs from Valve's newest. Fake an older one with
 the environment through). fwupd correctly refuses the firmware in the VM
 ("not for this machine's hardware"), so walk the whole flow with
 `WIZARD_BIOS_DRY_RUN=1` (skips only that check, never flashes). Scripted:
-`printf '6\n\ny\ny\nUPDATE\n\nq\n' | WIZARD_BIOS_DRY_RUN=1 /mnt/setup-gamescope-boot.sh`.
+`printf '6\n\ny\ny\nUPDATE\n\nq\n' | WIZARD_BIOS_DRY_RUN=1 /mnt/steamify.sh`.
 
 The wizard loops back to the menu after every run (Enter, or `m`/`r` when a
 restart is needed) until `q`; scripted input that runs out ends it like `q`.
@@ -267,7 +267,7 @@ them with `systemd-run --user <app>`.
 - The guest's `/tmp` is cleared on reboot; keep baselines elsewhere.
 - The fake Fremont DMI makes leds-valve load 17 LED nodes, but there is no real hardware.
 - shellcheck: `sudo pacman -S shellcheck`, then in `/mnt`:
-  `shellcheck -S warning -x setup-gamescope-boot.sh lib/*.sh`
+  `shellcheck -S warning -x steamify.sh lib/*.sh`
   (SC2154/SC2034 cross-file warnings are false positives).
 - This repo's `.gitignore` is an allowlist: it ignores everything and
   un-ignores only the tracked scripts/docs. Add any new tracked file to it

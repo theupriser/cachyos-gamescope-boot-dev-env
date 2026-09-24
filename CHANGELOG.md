@@ -30,10 +30,12 @@ Watchable test runs and the lessons from testing cachyos-gamescope-boot 0.7.0
     version (SMBIOS type 0), so the wizard offers the update.
   - Skill: testing the BIOS item with `WIZARD_BIOS_DRY_RUN=1`, and the
     wizard's menu loop.
-- **docs: Renamed to steamify-cachyos-dev, for Steamify CachyOS**
+- `c6abfd2` **docs: Renamed to steamify-cachyos-dev, for Steamify CachyOS**
   - README and skill point to `github.com/theupriser/steamify-cachyos`; the
     local clone's default path (`REPO`) and the guest's state directory keep
     their old names.
+- **chore: The wizard's script is now steamify.sh**
+  - `vmrun.sh`, `vmwatch.sh`, the skill and the README run `/mnt/steamify.sh`.
 
 ## 0.1.1 - 2026-09-23
 
