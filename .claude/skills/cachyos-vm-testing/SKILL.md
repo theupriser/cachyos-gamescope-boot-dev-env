@@ -1,9 +1,9 @@
 ---
 name: cachyos-vm-testing
-description: Use when testing cachyos-gamescope-boot (setup-gamescope-boot.sh) changes in the CachyOS QEMU test VM - starting/stopping the VM, restoring snapshots, running the wizard over SSH with scripted menu input, checking each component's state, reboot checks and screenshots.
+description: Use when testing Steamify CachyOS (repo steamify-cachyos, setup-gamescope-boot.sh) changes in the CachyOS QEMU test VM - starting/stopping the VM, restoring snapshots, running the wizard over SSH with scripted menu input, checking each component's state, reboot checks and screenshots.
 ---
 
-# Testing cachyos-gamescope-boot in the CachyOS VM
+# Testing Steamify CachyOS in the CachyOS VM
 
 The wizard (`setup-gamescope-boot.sh` + `lib/*.sh`) opens a menu that detects
 which components are on and toggles them to match the user's choice. Menu order:

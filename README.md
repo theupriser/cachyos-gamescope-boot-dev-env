@@ -1,7 +1,7 @@
-# cachyos-gamescope-boot dev environment
+# Steamify CachyOS dev environment
 
 A QEMU/KVM test VM running CachyOS (KDE Plasma 6) for developing and testing
-[cachyos-gamescope-boot](https://github.com/theupriser/cachyos-gamescope-boot),
+[Steamify CachyOS](https://github.com/theupriser/steamify-cachyos),
 plus helper scripts and a Claude Code skill that documents the test workflow.
 
 Only scripts and docs live here. The ISO, disk image, UEFI variable stores,
@@ -102,7 +102,8 @@ read-write as 9p tag `repo`; in the guest:
 - `--nvidia`: render the guest's virtio-gpu (virgl) on the host NVIDIA dGPU
 - `--vulkan`: expose Vulkan to the guest (venus; unstable)
 - `--fremont`: fake the Valve Steam Machine (Fremont) DMI data via `-smbios`
-- `REPO` defaults to `$HOME/projects/cachyos-gamescope-boot`
+- `REPO` defaults to `$HOME/projects/cachyos-gamescope-boot` (the local clone of
+  [steamify-cachyos](https://github.com/theupriser/steamify-cachyos))
 
 ## Helper scripts
 

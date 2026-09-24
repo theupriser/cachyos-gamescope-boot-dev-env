@@ -25,11 +25,15 @@ Watchable test runs and the lessons from testing cachyos-gamescope-boot 0.7.0
     re-applying the conversion resets the session to gamescope, the new
     theme and LED checks in the test matrix, and the broken mirror workaround.
 - `3733f94` **docs: Changelog**
-- **feat: Fake BIOS version for testing the BIOS update item**
+- `3cdf2e1` **feat: Fake BIOS version for testing the BIOS update item**
   - `BIOS_VERSION=F7F0107 ./run.sh ...` makes the guest report that BIOS
     version (SMBIOS type 0), so the wizard offers the update.
   - Skill: testing the BIOS item with `WIZARD_BIOS_DRY_RUN=1`, and the
     wizard's menu loop.
+- **docs: Renamed to steamify-cachyos-dev, for Steamify CachyOS**
+  - README and skill point to `github.com/theupriser/steamify-cachyos`; the
+    local clone's default path (`REPO`) and the guest's state directory keep
+    their old names.
 
 ## 0.1.1 - 2026-09-23
 
