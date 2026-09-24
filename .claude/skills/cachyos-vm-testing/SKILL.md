@@ -12,7 +12,11 @@ which components are on and toggles them to match the user's choice. Menu order:
 2. SteamOS theme (installs `cachyos-vapor` and applies the Vapor global theme with its desktop and window layout; needs a running Plasma session)
 3. Steam Deck/Machine icons (`STEAM_GAMEPADUI_ARGS -steamos3`)
 4. Single user mode (SDDM, no lock screen/user switching/log out; enabling it enables 1, disabling 1 disables it)
-5. Steam Machine support (only on DMI Valve/Fremont: leds-valve-dkms-git built for every kernel via `/etc/dkms/leds-valve-dkms.conf`, `ensure-kernel-headers.service`, udev rule, steamos-manager)
+5. Steamify shortcut (desktop icon + launcher entry that `curl | bash` the newest release; its gear icon is a release asset)
+6. Steam Machine support (only on DMI Valve/Fremont: leds-valve-dkms-git built for every kernel via `/etc/dkms/leds-valve-dkms.conf`, `ensure-kernel-headers.service`, udev rule, steamos-manager, powerdevilrc)
+7. Update BIOS (only on Fremont, an opt-in action, never pre-ticked; tickable only when Valve has a newer BIOS)
+
+Without `--fremont` the menu has only 1-5.
 
 Undo journals live in `~/.local/state/cachyos-gamescope-boot/` in the guest.
 
@@ -29,11 +33,22 @@ snapshot commands below run in that directory. `scripts/vmreset.sh` takes
 
 ```bash
 scripts/vmreset.sh --fremont        # restore ssh-ready, boot, mount repo, autologin, wait for Plasma
+                                    # (also skips the broken krfoss mirror, installs shellcheck)
 scripts/cmp.sh save                 # baseline of the KDE configs
-scripts/vmwatch.sh '1\n3\n\ny\nn\n' "Theme only"   # wizard in a visible Konsole in the VM
+scripts/vmwatch.sh '1\n3\n\ny\n' "Theme only"   # wizard in a visible Konsole in the VM
+scripts/vmwatch.sh --release '\ny\nm\nq\n' "Full run"   # the newest GitHub release instead of /mnt
 scripts/vmstate.sh                  # component state
-scripts/vmshot.sh /path/shot.png    # screenshot, then view it
+scripts/vmshot.sh --clean /path/shot.png    # screenshot (--clean: close Steam/Hello/Konsole first)
 ```
+
+**Always finish on a fresh `ssh-ready` snapshot**, ideally with `--release`
+once published. Re-applying or toggling on an already set-up VM hides
+first-install bugs: the DKMS override silently failed on a fresh system
+(`/etc/dkms` doesn't exist before `dkms` is installed), which no re-apply
+showed because `dkms` was there already.
+
+Long runs (full install: packages, yay, DKMS) take 10+ minutes: run them
+with `run_in_background` and wait with an until-loop, not chained sleeps.
 
 Prefer `vmwatch.sh` over `vmrun.sh` when the user is watching the QEMU
 window: `vmrun.sh` runs invisibly over SSH, so they see nothing happen.
@@ -134,21 +149,26 @@ guest). Manually, in the guest:
 
 ```bash
 export XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
-printf '\ny\nn\n' | /mnt/steamify.sh
+printf '\ny\nm\nq\n' | /mnt/steamify.sh
 ```
 
 Menu input: a number toggles a component, an empty line continues, `a`
-re-applies what is on, `q` quits. Then `y` answers "Go ahead?" and `n` the
-restart question.
+re-applies what is on, `q` quits; then `y` answers "Go ahead?". The wizard
+**loops**: after a run it asks for Enter (back to the menu), or `[m]`/`[r]`
+(menu / restart now) when a restart is needed. On `q` with a restart pending
+it asks "Restart now? [Y/n]" (default **yes**): `n` goes back to the menu and
+the next `q` asks again. Input that runs out quits without restarting, so end
+scripted input right after the last `q` (or with `n`), never with an empty
+line at the restart question.
 
 | Input | Meaning |
 |---|---|
-| `'\ny\nn\n'` | first run, accept all |
-| `'2\n\ny\nn\n'` | toggle the theme |
-| `'a\ny\nn\n'` | re-apply what is on |
+| `'\ny\nm\nq\n'` | first run, accept all (not the BIOS item), back to the menu, quit |
+| `'2\n\ny\n'` | toggle the theme |
+| `'a\ny\nm\nq\n'` | re-apply what is on (includes the conversion, so a restart is pending) |
 | `'q\n'` | just show the menu |
-| `'1\n3\n\ny\nn\n'` | from all-off: theme only (Steam Machine too with `--fremont`; add `5\n` to drop it) |
-| `'1\n\ny\nn\n'` | from a state where 1 is off: turn the conversion on |
+| `'1\n3\n5\n\ny\n'` | from all-off: theme only (with `--fremont` also add `6\n` to drop Steam Machine support) |
+| `'1\n\ny\n'` | from a state where 1 is off: turn the conversion on |
 
 **Know the starting ticks before choosing input.** When *everything* is off
 (fresh snapshot, or after turning the last component off), the menu treats it
@@ -200,6 +220,16 @@ After changing the theme, `cmp.sh` should show only spectacle's
 `~/.config/kdedefaults` (e.g. `ColorScheme=BreezeDark`, `widgetStyle=Breeze`):
 KDE drops or writes those on its own.
 
+## Testing the newest release
+
+`scripts/vmwatch.sh --release '<input>'` downloads
+`releases/latest/download/steamify.sh` in the guest and runs it with the piped
+input (`WIZARD_KEEP_STDIN=1`; the bundle otherwise reattaches the terminal).
+Release assets only exist from the version that added them: before v0.9.0 was
+published, `steamify.sh` and the shortcut's `steam-gaming-settings.svg` gave
+404 and the shortcut fell back to Steam's icon. Check a release with
+`curl -sIL -o /dev/null -w '%{http_code}' .../releases/latest/download/<asset>`.
+
 ## Reboot checks
 
 - Single user mode on: SDDM autologin without greeter: `pgrep sddm-greeter` empty, `plasmashell` running.
@@ -210,7 +240,9 @@ KDE drops or writes those on its own.
 Reset to `ssh-ready`, start with `--fremont`, mount the repo, enable test
 autologin, then (all passed last run; `scripts/vmstate.sh` after every step):
 
-1. Fresh run turning everything on (`'\ny\nn\n'`), set session to plasma, reboot.
+1. Fresh run turning everything on (`'\ny\nm\nq\n'`), set session to plasma, reboot:
+   SDDM logs straight in, Vapor desktop, three desktop icons (Return to Gaming
+   Mode, Steam, Steamify CachyOS with the gear icon), LEDs loaded (17 nodes).
 2. Rerun: all shown on, "Everything is already the way you want it".
 3. `a` re-apply: no duplicate journal entries.
 4. Theme on: Steam Deck wallpaper, full-width 46px panel, `distributor-logo-steamdeck` launcher icon, `dark-lnf=com.valve.vapor.desktop` (Brightness & Color's Dark Mode toggle is on, hint "Switch to Breeze"); with single user on, kickoff keeps `primaryActions=3`. Theme off: CachyOS wallpaper, floating 30px panel, CachyOS launcher icon, BreezeDark colors (not light), `cachyos-vapor` removed, `cmp.sh` clean.
@@ -232,14 +264,26 @@ differs from Valve's newest. Fake an older one with
 the environment through). fwupd correctly refuses the firmware in the VM
 ("not for this machine's hardware"), so walk the whole flow with
 `WIZARD_BIOS_DRY_RUN=1` (skips only that check, never flashes). Scripted:
-`printf '6\n\ny\ny\nUPDATE\n\nq\n' | WIZARD_BIOS_DRY_RUN=1 /mnt/steamify.sh`.
+`printf '7\n\ny\ny\nUPDATE\nm\nq\nn\n' | WIZARD_BIOS_DRY_RUN=1 /mnt/steamify.sh`
+(BIOS is item 7 with `--fremont`; the final `n` answers the restart question).
 
-The wizard loops back to the menu after every run (Enter, or `m`/`r` when a
-restart is needed) until `q`; scripted input that runs out ends it like `q`.
+A successful dry run counts as staged, so `[m]`/`[r]` and the restart question
+on `q` show up too; in dry-run mode "restart" only prints.
+
+## Steamify shortcut
+
+Test a double-click with `systemd-run --user kioclient exec
+~/Desktop/cachyos-gamescope-boot-wizard.desktop`. If Plasma opens the file in
+Kate instead, it saw the file before it was executable. After the wizard the
+window counts down 10 seconds and closes; after an error (e.g. 404) it waits
+for Enter.
 
 ## Visual checks
 
-`scripts/vmshot.sh <out.png>` does the below. Starting `spectacle` straight
+`scripts/vmshot.sh [--clean] <out.png>` does the below. After a reboot, Steam's
+sign-in window and CachyOS Hello cover the desktop: `--clean` shuts Steam down
+(closing only `steamwebhelper` leaves a black window) and closes Hello and the
+wizard's Konsole. Steam comes back at the next login. Starting `spectacle` straight
 from SSH core-dumps; it has to run as a user unit (`systemd-run --user --wait`).
 
 ```bash
@@ -258,17 +302,22 @@ them with `systemd-run --user <app>`.
 ## Pitfalls
 
 - Broken mirror: `mirror5.krfoss.org` served a bad `.sig` ("Maximum file size
-  exceeded"), failing the conversion's package install. Comment it out:
-  `sudo sed -i '/krfoss/s/^Server/#Server/' /etc/pacman.d/*mirrorlist*`.
+  exceeded"), failing the conversion's package install. `vmreset.sh` comments
+  it out; by hand: `sudo sed -i '/krfoss/s/^Server/#Server/' /etc/pacman.d/*mirrorlist*`.
+- The snapshot has no shellcheck; `vmreset.sh` installs it. Check the bundle
+  like CI: `.github/tools/bundle.sh` on the host, then in the guest
+  `cd /mnt && shellcheck -S warning -e SC2034,SC2154 dist/steamify.sh`.
+- The host shell is zsh: `$var` holding several file names isn't split
+  (`sed -i ... $files` gets one "name"); use `xargs`.
 - Windows open in the snapshot (System Settings, CachyOS Hello) show stale
   data (e.g. a theme list from before `cachyos-vapor`) and cover screenshots;
   `vmreset.sh` closes them.
 
 - The guest's `/tmp` is cleared on reboot; keep baselines elsewhere.
 - The fake Fremont DMI makes leds-valve load 17 LED nodes, but there is no real hardware.
-- shellcheck: `sudo pacman -S shellcheck`, then in `/mnt`:
-  `shellcheck -S warning -x steamify.sh lib/*.sh`
-  (SC2154/SC2034 cross-file warnings are false positives).
+- Per-file shellcheck (`shellcheck -S warning -x steamify.sh lib/*.sh` in
+  `/mnt`) shows SC2154/SC2034 cross-file false positives; the bundle check
+  above is the one CI runs.
 - This repo's `.gitignore` is an allowlist: it ignores everything and
   un-ignores only the tracked scripts/docs. Add any new tracked file to it
   explicitly, or git will silently ignore it.

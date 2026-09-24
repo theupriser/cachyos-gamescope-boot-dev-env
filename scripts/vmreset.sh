@@ -1,7 +1,8 @@
 #!/bin/bash
 # Reset the test VM to a snapshot and bring it up logged in to Plasma:
 # power off, restore the snapshot (disk + vars.fd), start it, mount the repo
-# on /mnt, set up the test autologin and wait for plasmashell.
+# on /mnt, set up the test autologin and wait for plasmashell; also skips
+# the broken krfoss mirror and installs shellcheck.
 #   scripts/vmreset.sh [run.sh flags...]      e.g. scripts/vmreset.sh --fremont
 # Env: VM_USER / VM_PORT / VM_HOST, SNAPSHOT (ssh-ready),
 #      VM_DIR (where disk.qcow2 lives: this repo if it has one, else ~/vms/cachyos-test),
@@ -41,5 +42,10 @@ for _ in $(seq 40); do pgrep -u "$USER" -x plasmashell >/dev/null && break; slee
 sleep 10
 # Windows the snapshot opens at login would cover the screenshots.
 pkill -u "$USER" systemsettings; pkill -u "$USER" cachyos-hello
+# mirror5.krfoss.org served a broken .sig ("Maximum file size exceeded"),
+# which fails the conversion's package install; skip it.
+for f in /etc/pacman.d/*mirrorlist*; do sudo sed -i '/krfoss/s/^Server/#Server/' "$f"; done
+# shellcheck, for checking the bundle like CI does (not in the snapshot).
+sudo pacman -S --needed --noconfirm shellcheck >/dev/null 2>&1 || echo "Couldn't install shellcheck." >&2
 pgrep -u "$USER" -x plasmashell >/dev/null && echo "Logged in to Plasma." || { echo "Plasma did not start." >&2; exit 1; }
 REMOTE

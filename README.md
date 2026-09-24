@@ -108,9 +108,12 @@ read-write as 9p tag `repo`; in the guest:
 ## Helper scripts
 
 - `scripts/vmreset.sh [--fremont]`: restore `ssh-ready`, boot, mount the repo, autologin into Plasma
+  (and skip the broken krfoss mirror, install shellcheck)
 - `scripts/vmrun.sh '<menu input>'`: run the wizard in the guest's Plasma session with scripted input
-- `scripts/vmwatch.sh '<menu input>' [label]`: same, but in a visible Konsole window in the VM
-- `scripts/vmshot.sh <out.png>`: screenshot the guest's desktop
+- `scripts/vmwatch.sh [--release] '<menu input>' [label]`: same, but in a visible Konsole window
+  in the VM; `--release` runs the newest GitHub release instead of the mounted repo
+- `scripts/vmshot.sh [--clean] <out.png>`: screenshot the guest's desktop (`--clean` closes
+  Steam, CachyOS Hello and Konsole first)
 - `scripts/vmstate.sh`: print the state of every wizard component
 - `scripts/cmp.sh [save]`: save / diff the guest's KDE configs against a baseline
 

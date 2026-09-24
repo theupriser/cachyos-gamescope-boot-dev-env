@@ -34,8 +34,16 @@ Watchable test runs and the lessons from testing cachyos-gamescope-boot 0.7.0
   - README and skill point to `github.com/theupriser/steamify-cachyos`; the
     local clone's default path (`REPO`) and the guest's state directory keep
     their old names.
-- **chore: The wizard's script is now steamify.sh**
+- `8c48858` **chore: The wizard's script is now steamify.sh**
   - `vmrun.sh`, `vmwatch.sh`, the skill and the README run `/mnt/steamify.sh`.
+- **feat: Release testing, cleaner resets and screenshots; skill updates**
+  - `vmwatch.sh --release` runs the newest GitHub release in the VM.
+  - `vmreset.sh` skips the broken krfoss mirror and installs shellcheck.
+  - `vmshot.sh --clean` closes Steam, CachyOS Hello and Konsole first.
+  - Skill: menu items 1-7 and the new menu loop/restart question, current
+    scripted inputs, always finishing on a fresh snapshot (the DKMS bug only
+    showed there), testing releases and their assets, the Steamify shortcut,
+    and the zsh word-splitting pitfall.
 
 ## 0.1.1 - 2026-09-23
 
