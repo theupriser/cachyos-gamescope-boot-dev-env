@@ -106,7 +106,10 @@ read-write as 9p tag `repo`; in the guest:
 
 ## Helper scripts
 
+- `scripts/vmreset.sh [--fremont]`: restore `ssh-ready`, boot, mount the repo, autologin into Plasma
 - `scripts/vmrun.sh '<menu input>'`: run the wizard in the guest's Plasma session with scripted input
+- `scripts/vmwatch.sh '<menu input>' [label]`: same, but in a visible Konsole window in the VM
+- `scripts/vmshot.sh <out.png>`: screenshot the guest's desktop
 - `scripts/vmstate.sh`: print the state of every wizard component
 - `scripts/cmp.sh [save]`: save / diff the guest's KDE configs against a baseline
 

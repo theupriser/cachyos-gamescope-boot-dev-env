@@ -9,15 +9,34 @@ The wizard (`setup-gamescope-boot.sh` + `lib/*.sh`) opens a menu that detects
 which components are on and toggles them to match the user's choice. Menu order:
 
 1. SteamOS conversion (boot into gaming mode via autologin, Return to Gaming Mode shortcut, Steam desktop autostart)
-2. SteamOS theme (Vapor)
+2. SteamOS theme (installs `cachyos-vapor` and applies the Vapor global theme with its desktop and window layout; needs a running Plasma session)
 3. Steam Deck/Machine icons (`STEAM_GAMEPADUI_ARGS -steamos3`)
 4. Single user mode (SDDM, no lock screen/user switching/log out; enabling it enables 1, disabling 1 disables it)
-5. Steam Machine support (only on DMI Valve/Fremont: leds-valve-dkms-git, udev rule, steamos-manager)
+5. Steam Machine support (only on DMI Valve/Fremont: leds-valve-dkms-git built for every kernel via `/etc/dkms/leds-valve-dkms.conf`, `ensure-kernel-headers.service`, udev rule, steamos-manager)
 
 Undo journals live in `~/.local/state/cachyos-gamescope-boot/` in the guest.
 
 Run everything from the root of this repo on the host. Defaults: user
 `theupriser`, SSH port `2222` (the scripts take `VM_USER` / `VM_PORT` / `VM_HOST`).
+
+The VM's disk, `vars*.fd` and `run.sh` copy may live outside the repo
+(`~/vms/cachyos-test` on the main dev machine). Find it with
+`readlink /proc/$(pgrep -f '^qemu-system')/cwd` when the VM runs; the
+snapshot commands below run in that directory. `scripts/vmreset.sh` takes
+`VM_DIR` and defaults to the repo if it holds `disk.qcow2`, else `~/vms/cachyos-test`.
+
+## Quick start (the usual loop)
+
+```bash
+scripts/vmreset.sh --fremont        # restore ssh-ready, boot, mount repo, autologin, wait for Plasma
+scripts/cmp.sh save                 # baseline of the KDE configs
+scripts/vmwatch.sh '1\n3\n\ny\nn\n' "Theme only"   # wizard in a visible Konsole in the VM
+scripts/vmstate.sh                  # component state
+scripts/vmshot.sh /path/shot.png    # screenshot, then view it
+```
+
+Prefer `vmwatch.sh` over `vmrun.sh` when the user is watching the QEMU
+window: `vmrun.sh` runs invisibly over SSH, so they see nothing happen.
 
 ## VM lifecycle
 
@@ -67,6 +86,10 @@ adds the host keys (`share/host-keys.pub`, written by `run.sh`) and a NOPASSWD
 sudoers rule for the test user.
 
 ## Mounting the project repo
+
+The mount is lost on every reboot (unless the fstab line below was added).
+Without it the wizard fails with `/mnt/setup-gamescope-boot.sh: No such file
+or directory`, which is easy to miss in filtered output. Remount after each reboot.
 
 The repo (`REPO`, default `~/projects/cachyos-gamescope-boot`) is shared
 read-write as 9p tag `repo`. The `ssh-ready` snapshot does not mount it:
@@ -124,8 +147,23 @@ restart question.
 | `'2\n\ny\nn\n'` | toggle the theme |
 | `'a\ny\nn\n'` | re-apply what is on |
 | `'q\n'` | just show the menu |
+| `'1\n3\n\ny\nn\n'` | from all-off: theme only (Steam Machine too with `--fremont`; add `5\n` to drop it) |
+| `'1\n\ny\nn\n'` | from a state where 1 is off: turn the conversion on |
+
+**Know the starting ticks before choosing input.** When *everything* is off
+(fresh snapshot, or after turning the last component off), the menu treats it
+as a first run and pre-ticks **all** components, so `2` means "theme off,
+rest on". Otherwise the ticks show what is on now. Unticking 1 also unticks 4,
+and ticking 4 ticks 1 again, so `'1\n3\n4\n...'` ends with the conversion on.
+When unsure, run `'q\n'` first and read the ticks.
+
+`a` only re-applies components that are already on: it does not retry one that
+failed. Re-applying the conversion also resets the autologin session to
+gamescope, so set it back to plasma before the next reboot (below).
 
 ## Gamescope does not render in this VM
+
+(Also after any re-apply that includes the conversion.)
 
 No suitable Vulkan (venus is unstable with the host NVIDIA driver). After
 enabling the conversion, before rebooting:
@@ -157,6 +195,11 @@ DM, set the session, start it).
 `scripts/cmp.sh save` stores a baseline of the KDE/GTK configs in the guest
 (`~/.cache/vm-baseline`, not `/tmp`); `scripts/cmp.sh` diffs against it.
 
+After changing the theme, `cmp.sh` should show only spectacle's
+`kglobalshortcutsrc` entries (from screenshots) and keys whose value equals
+`~/.config/kdedefaults` (e.g. `ColorScheme=BreezeDark`, `widgetStyle=Breeze`):
+KDE drops or writes those on its own.
+
 ## Reboot checks
 
 - Single user mode on: SDDM autologin without greeter: `pgrep sddm-greeter` empty, `plasmashell` running.
@@ -170,20 +213,27 @@ autologin, then (all passed last run; `scripts/vmstate.sh` after every step):
 1. Fresh run turning everything on (`'\ny\nn\n'`), set session to plasma, reboot.
 2. Rerun: all shown on, "Everything is already the way you want it".
 3. `a` re-apply: no duplicate journal entries.
-4. Theme off: look restored (CachyOS wallpaper, floating 30px panel, `org.cachyos.hello` launcher icon).
+4. Theme on: Steam Deck wallpaper, full-width 46px panel, `distributor-logo-steamdeck` launcher icon, `dark-lnf=com.valve.vapor.desktop` (Brightness & Color's Dark Mode toggle is on, hint "Switch to Breeze"); with single user on, kickoff keeps `primaryActions=3`. Theme off: CachyOS wallpaper, floating 30px panel, CachyOS launcher icon, BreezeDark colors (not light), `cachyos-vapor` removed, `cmp.sh` clean.
 5. Single user off: switches to plasmalogin + sync bridge + sudoers; shortcut Exec uses `sudo -n`.
 6. Single user on: back to SDDM.
 7. Icons + Steam Machine support off: driver, udev rule, modules-load, steamos-manager removed; yay kept.
+7b. DKMS: `vmstate.sh` shows `installed` for every kernel. Headers at boot:
+   `sudo pacman -R --noconfirm linux-cachyos-lts-headers` (DKMS drops the LTS
+   build), set the session to plasma, reboot, then `journalctl -b -u
+   ensure-kernel-headers` shows the install and DKMS lists LTS again.
 8. Conversion off: single user auto-unticked, plasmalogin `[Autologin]` back to CachyOS's `Session=plasma`, journals empty.
 9. Remove the test autologin file, reboot: normal login screen.
 
 ## Visual checks
 
+`scripts/vmshot.sh <out.png>` does the below. Starting `spectacle` straight
+from SSH core-dumps; it has to run as a user unit (`systemd-run --user --wait`).
+
 ```bash
 ssh -p 2222 -o BatchMode=yes theupriser@localhost bash -s << 'EOF'
 export XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.activateLauncherMenu   # optional, toggles
-sleep 1; spectacle -b -n -f -o /tmp/x.png
+sleep 1; systemd-run --user --wait -q spectacle -b -n -f -o /tmp/x.png
 EOF
 scp -P 2222 theupriser@localhost:/tmp/x.png /tmp/x.png    # then view it
 ```
@@ -193,6 +243,13 @@ directly over SSH lack the session's Qt platform theme and look light; start
 them with `systemd-run --user <app>`.
 
 ## Pitfalls
+
+- Broken mirror: `mirror5.krfoss.org` served a bad `.sig` ("Maximum file size
+  exceeded"), failing the conversion's package install. Comment it out:
+  `sudo sed -i '/krfoss/s/^Server/#Server/' /etc/pacman.d/*mirrorlist*`.
+- Windows open in the snapshot (System Settings, CachyOS Hello) show stale
+  data (e.g. a theme list from before `cachyos-vapor`) and cover screenshots;
+  `vmreset.sh` closes them.
 
 - The guest's `/tmp` is cleared on reboot; keep baselines elsewhere.
 - The fake Fremont DMI makes leds-valve load 17 LED nodes, but there is no real hardware.
